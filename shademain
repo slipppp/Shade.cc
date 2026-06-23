@@ -277,7 +277,7 @@ function Library:CreateWindow(config)
         Name = "Tabs",
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(14, 0),
-        Size = UDim2.new(1, -190, 1, 0)
+        Size = UDim2.new(1, -72, 1, 0)
     }, {
         new("UIListLayout", {
             FillDirection = Enum.FillDirection.Horizontal,
@@ -288,48 +288,22 @@ function Library:CreateWindow(config)
     })
     tabBar.Parent = top
 
-    local profile = new("Frame", {
-        Name = "Profile",
+    local profile = new("ImageLabel", {
+        Name = "PlayerAvatar",
         AnchorPoint = Vector2.new(1, 0.5),
-        BackgroundColor3 = Color3.fromRGB(13, 14, 18),
-        BorderSizePixel = 0,
-        Position = UDim2.new(1, -12, 0.5, 0),
-        Size = UDim2.fromOffset(160, 30)
-    }, {
-        corner(15),
-        stroke(accent, 1, 0.2)
-    })
-    profile.Parent = top
-
-    local profileImage = new("ImageLabel", {
-        Name = "Avatar",
         BackgroundColor3 = Color3.fromRGB(18, 18, 24),
         BorderSizePixel = 0,
         Image = avatarImage,
-        Position = UDim2.fromOffset(3, 3),
+        Position = UDim2.new(1, -15, 0.5, 0),
         ScaleType = Enum.ScaleType.Crop,
-        Size = UDim2.fromOffset(24, 24)
+        Size = UDim2.fromOffset(25, 25)
     }, {
         new("UICorner", {
             CornerRadius = UDim.new(1, 0)
         }),
-        stroke(accent, 1, 0.15)
+        stroke(accent, 1, 0)
     })
-    profileImage.Parent = profile
-
-    local profileName = new("TextLabel", {
-        Name = "PlayerName",
-        BackgroundTransparency = 1,
-        Font = Enum.Font.GothamBold,
-        Position = UDim2.fromOffset(34, 0),
-        Size = UDim2.new(1, -44, 1, 0),
-        Text = player.DisplayName ~= "" and player.DisplayName or player.Name,
-        TextColor3 = TEXT,
-        TextSize = 12,
-        TextTruncate = Enum.TextTruncate.AtEnd,
-        TextXAlignment = Enum.TextXAlignment.Left
-    })
-    profileName.Parent = profile
+    profile.Parent = top
 
     local divider = new("Frame", {
         Name = "Divider",
@@ -354,7 +328,7 @@ function Library:CreateWindow(config)
         BackgroundColor3 = Color3.fromRGB(10, 11, 14),
         BorderSizePixel = 0,
         Position = UDim2.fromOffset(22, 190),
-        Size = UDim2.fromOffset(48, 48)
+        Size = UDim2.fromOffset(44, 44)
     }, {
         new("UICorner", {
             CornerRadius = UDim.new(1, 0)
@@ -373,8 +347,8 @@ function Library:CreateWindow(config)
         Name = "Button",
         AutoButtonColor = false,
         BackgroundTransparency = 1,
-        Position = UDim2.fromOffset(6, 6),
-        Size = UDim2.new(1, -12, 1, -12),
+        Position = UDim2.fromOffset(7, 7),
+        Size = UDim2.new(1, -14, 1, -14),
         Text = ""
     })
     floatingButton.Parent = floating
