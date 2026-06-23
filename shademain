@@ -44,6 +44,28 @@ local function tween(instance, time, goal)
     TweenService:Create(instance, TweenInfo.new(time or 0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal):Play()
 end
 
+local function assetId(value)
+    if typeof(value) == "number" then
+        return "rbxassetid://" .. tostring(value)
+    end
+
+    if typeof(value) == "string" and value:match("^%d+$") then
+        return "rbxassetid://" .. value
+    end
+
+    return value or ""
+end
+
+local function playerHeadshot()
+    local image = ""
+
+    pcall(function()
+        image = Players:GetUserThumbnailAsync(player.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size48x48)
+    end)
+
+    return image
+end
+
 local function makeDraggable(handle, target)
     local dragging = false
     local dragStart
@@ -84,6 +106,59 @@ local function makeDraggable(handle, target)
     end)
 end
 
+local function makeFloatingToggle(button, target, onClick)
+    local dragging = false
+    local moved = false
+    local dragStart
+    local startPosition
+
+    button.InputBegan:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
+            return
+        end
+
+        dragging = true
+        moved = false
+        dragStart = input.Position
+        startPosition = target.Position
+    end)
+
+    button.InputEnded:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
+            return
+        end
+
+        dragging = false
+
+        if not moved and onClick then
+            onClick()
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if not dragging then
+            return
+        end
+
+        if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then
+            return
+        end
+
+        local delta = input.Position - dragStart
+
+        if math.abs(delta.X) > 4 or math.abs(delta.Y) > 4 then
+            moved = true
+        end
+
+        target.Position = UDim2.new(
+            startPosition.X.Scale,
+            startPosition.X.Offset + delta.X,
+            startPosition.Y.Scale,
+            startPosition.Y.Offset + delta.Y
+        )
+    end)
+end
+
 local Window = {}
 Window.__index = Window
 
@@ -95,8 +170,10 @@ function Library:CreateWindow(config)
 
     local accent = config.Accent or DEFAULT_ACCENT
     local title = config.Title or "R"
+    local icon = assetId(config.Icon)
     local width = config.Width or 560
     local height = config.Height or 350
+    local avatarImage = playerHeadshot()
 
     local screenGui = new("ScreenGui", {
         Name = config.Name or "PinkPanelUI",
@@ -154,19 +231,39 @@ function Library:CreateWindow(config)
     })
     sideContent.Parent = side
 
-    local logo = new("TextLabel", {
-        Name = "Logo",
+    local logo = new("Frame", {
+        Name = "LogoHolder",
+        BackgroundTransparency = 1,
+        LayoutOrder = 1,
+        Size = UDim2.new(1, 0, 0, 58)
+    })
+    logo.Parent = sideContent
+
+    local logoImage = new("ImageLabel", {
+        Name = "LogoImage",
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundTransparency = 1,
+        Image = icon,
+        Position = UDim2.fromScale(0.5, 0.5),
+        ScaleType = Enum.ScaleType.Fit,
+        Size = UDim2.fromOffset(54, 54),
+        Visible = icon ~= ""
+    })
+    logoImage.Parent = logo
+
+    local logoFallback = new("TextLabel", {
+        Name = "LogoFallback",
         BackgroundTransparency = 1,
         Font = Enum.Font.GothamBlack,
-        LayoutOrder = 1,
-        Size = UDim2.new(1, 0, 0, 58),
+        Size = UDim2.fromScale(1, 1),
         Text = title,
         TextColor3 = accent,
-        TextScaled = true
+        TextScaled = true,
+        Visible = icon == ""
     }, {
         stroke(Color3.fromRGB(255, 187, 245), 1, 0.1)
     })
-    logo.Parent = sideContent
+    logoFallback.Parent = logo
 
     local top = new("Frame", {
         Name = "TopBar",
@@ -180,7 +277,7 @@ function Library:CreateWindow(config)
         Name = "Tabs",
         BackgroundTransparency = 1,
         Position = UDim2.fromOffset(14, 0),
-        Size = UDim2.new(1, -72, 1, 0)
+        Size = UDim2.new(1, -190, 1, 0)
     }, {
         new("UIListLayout", {
             FillDirection = Enum.FillDirection.Horizontal,
@@ -191,20 +288,48 @@ function Library:CreateWindow(config)
     })
     tabBar.Parent = top
 
-    local circle = new("Frame", {
-        Name = "CircleButton",
+    local profile = new("Frame", {
+        Name = "Profile",
         AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundColor3 = Color3.fromRGB(13, 14, 18),
+        BorderSizePixel = 0,
+        Position = UDim2.new(1, -12, 0.5, 0),
+        Size = UDim2.fromOffset(160, 30)
+    }, {
+        corner(15),
+        stroke(accent, 1, 0.2)
+    })
+    profile.Parent = top
+
+    local profileImage = new("ImageLabel", {
+        Name = "Avatar",
         BackgroundColor3 = Color3.fromRGB(18, 18, 24),
         BorderSizePixel = 0,
-        Position = UDim2.new(1, -14, 0.5, 0),
+        Image = avatarImage,
+        Position = UDim2.fromOffset(3, 3),
+        ScaleType = Enum.ScaleType.Crop,
         Size = UDim2.fromOffset(24, 24)
     }, {
         new("UICorner", {
             CornerRadius = UDim.new(1, 0)
         }),
-        stroke(accent, 1, 0)
+        stroke(accent, 1, 0.15)
     })
-    circle.Parent = top
+    profileImage.Parent = profile
+
+    local profileName = new("TextLabel", {
+        Name = "PlayerName",
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamBold,
+        Position = UDim2.fromOffset(34, 0),
+        Size = UDim2.new(1, -44, 1, 0),
+        Text = player.DisplayName ~= "" and player.DisplayName or player.Name,
+        TextColor3 = TEXT,
+        TextSize = 12,
+        TextTruncate = Enum.TextTruncate.AtEnd,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    profileName.Parent = profile
 
     local divider = new("Frame", {
         Name = "Divider",
@@ -224,13 +349,69 @@ function Library:CreateWindow(config)
     })
     content.Parent = root
 
+    local floating = new("Frame", {
+        Name = "FloatingToggle",
+        BackgroundColor3 = Color3.fromRGB(10, 11, 14),
+        BorderSizePixel = 0,
+        Position = UDim2.fromOffset(22, 190),
+        Size = UDim2.fromOffset(48, 48)
+    }, {
+        new("UICorner", {
+            CornerRadius = UDim.new(1, 0)
+        }),
+        stroke(accent, 2, 0)
+    })
+    floating.Parent = screenGui
+
+    local toggleImage = assetId(config.ToggleIcon)
+
+    if toggleImage == "" then
+        toggleImage = icon
+    end
+
+    local floatingButton = new("TextButton", {
+        Name = "Button",
+        AutoButtonColor = false,
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(6, 6),
+        Size = UDim2.new(1, -12, 1, -12),
+        Text = ""
+    })
+    floatingButton.Parent = floating
+
+    local floatingIcon = new("ImageLabel", {
+        BackgroundTransparency = 1,
+        Image = toggleImage,
+        ScaleType = Enum.ScaleType.Fit,
+        Size = UDim2.fromScale(1, 1),
+        Visible = toggleImage ~= ""
+    })
+    floatingIcon.Parent = floatingButton
+
+    local floatingFallback = new("TextLabel", {
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamBlack,
+        Size = UDim2.fromScale(1, 1),
+        Text = title,
+        TextColor3 = accent,
+        TextScaled = true,
+        Visible = toggleImage == ""
+    }, {
+        stroke(Color3.fromRGB(255, 187, 245), 1, 0.1)
+    })
+    floatingFallback.Parent = floatingButton
+
     makeDraggable(top, root)
 
     local window = setmetatable({
         Accent = accent,
         Gui = screenGui,
         Root = root,
+        Floating = floating,
+        LogoImage = logoImage,
+        LogoFallback = logoFallback,
         Sidebar = sideContent,
+        SidebarButtons = {},
         TabBar = tabBar,
         Content = content,
         Tabs = {},
@@ -239,7 +420,46 @@ function Library:CreateWindow(config)
         TabOrder = 1
     }, Window)
 
+    makeFloatingToggle(floatingButton, floating, function()
+        window:SetVisible(not window.Root.Visible)
+    end)
+
     return window
+end
+
+function Window:SetVisible(visible)
+    self.Root.Visible = visible
+end
+
+function Window:Toggle()
+    self:SetVisible(not self.Root.Visible)
+end
+
+function Window:SetIcon(icon)
+    local image = assetId(icon)
+    self.LogoImage.Image = image
+    self.LogoImage.Visible = image ~= ""
+    self.LogoFallback.Visible = image == ""
+end
+
+function Window:SelectTabByName(name)
+    for _, tab in ipairs(self.Tabs) do
+        if tab.Name == name then
+            self:SelectTab(tab)
+            return tab
+        end
+    end
+
+    return nil
+end
+
+function Window:SelectSidebarButton(button)
+    for _, item in ipairs(self.SidebarButtons) do
+        local active = item == button
+        item.BackgroundColor3 = active and Color3.fromRGB(40, 24, 38) or Color3.fromRGB(10, 12, 15)
+        item.TextColor3 = active and TEXT or MUTED
+        item.UIStroke.Transparency = active and 0.1 or 1
+    end
 end
 
 function Window:SidebarSection(title, items)
@@ -276,7 +496,20 @@ function Window:SidebarSection(title, items)
             stroke(self.Accent, 1, selected and 0.1 or 1)
         })
         button.Parent = self.Sidebar
+        table.insert(self.SidebarButtons, button)
         self.SidebarOrder += 1
+
+        button.MouseButton1Click:Connect(function()
+            self:SelectSidebarButton(button)
+
+            if item.Tab then
+                self:SelectTabByName(item.Tab)
+            end
+
+            if item.Callback then
+                task.spawn(item.Callback, self, button)
+            end
+        end)
     end
 end
 
