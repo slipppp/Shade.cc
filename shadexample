@@ -1,0 +1,69 @@
+local UI = loadstring(game:HttpGet("https://raw.githubusercontent.com/slipppp/Shade.cc/refs/heads/main/shademain"))()
+
+local window = UI:CreateWindow({
+    Title = "R",
+    Accent = Color3.fromRGB(255, 90, 220),
+    Width = 560,
+    Height = 350
+})
+
+window:SidebarSection("Aim Assist", {
+    { Text = "Combat", Icon = "++", Selected = true }
+})
+
+window:SidebarSection("Game", {
+    { Text = "Visuals", Icon = "oo" },
+    { Text = "Local", Icon = "()" },
+    { Text = "Exploits", Icon = "==" }
+})
+
+window:SidebarSection("Others", {
+    { Text = "Settings", Icon = "*" }
+})
+
+local aimbot = window:Tab("Aimbot")
+aimbot:Toggle("Enabled", false, function(value)
+    print("Aimbot visual toggle:", value)
+end)
+aimbot:Slider("Smoothness", 1, 100, 25, "", function(value)
+    print("Smoothness:", value)
+end)
+aimbot:Bind("Bind", "None", function(key)
+    print("Aimbot bind:", key)
+end)
+
+local triggerBot = window:Tab("TriggerBot")
+triggerBot:Toggle("Enabled", false, function(value)
+    print("TriggerBot visual toggle:", value)
+end)
+triggerBot:Slider("Delay", 0, 500, 120, "ms", function(value)
+    print("Delay:", value)
+end)
+
+local silentAim = window:Tab("SilentAim", { Selected = true })
+silentAim:Toggle("Toggle", false, function(value)
+    print("SilentAim visual toggle:", value)
+end)
+silentAim:Toggle("Show Fov", false, function(value)
+    print("Show Fov:", value)
+end)
+silentAim:Slider("Field of View", 0, 100, 40, "", function(value)
+    print("FOV:", value)
+end)
+silentAim:Slider("Max Distance", 0, 400, 200, "m", function(value)
+    print("Max distance:", value)
+end)
+silentAim:Bind("Bind", "None", function(key)
+    print("Bind selected:", key)
+end)
+
+local esp = window:Tab("ESP")
+esp:Toggle("Boxes", false, function(value)
+    print("Boxes visual toggle:", value)
+end)
+esp:Toggle("Names", false, function(value)
+    print("Names visual toggle:", value)
+end)
+esp:Slider("Opacity", 0, 100, 70, "%", function(value)
+    print("Opacity:", value)
+end)
