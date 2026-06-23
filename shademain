@@ -1,0 +1,607 @@
+local Library = {}
+Library.__index = Library
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local player = Players.LocalPlayer
+
+local DEFAULT_ACCENT = Color3.fromRGB(255, 90, 220)
+local BG = Color3.fromRGB(8, 10, 12)
+local TEXT = Color3.fromRGB(218, 218, 225)
+local MUTED = Color3.fromRGB(136, 136, 148)
+
+local function new(className, props, children)
+    local instance = Instance.new(className)
+
+    for key, value in pairs(props or {}) do
+        instance[key] = value
+    end
+
+    for _, child in ipairs(children or {}) do
+        child.Parent = instance
+    end
+
+    return instance
+end
+
+local function corner(radius)
+    return new("UICorner", {
+        CornerRadius = UDim.new(0, radius or 6)
+    })
+end
+
+local function stroke(color, thickness, transparency)
+    return new("UIStroke", {
+        Color = color,
+        Thickness = thickness or 1,
+        Transparency = transparency or 0
+    })
+end
+
+local function tween(instance, time, goal)
+    TweenService:Create(instance, TweenInfo.new(time or 0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal):Play()
+end
+
+local function makeDraggable(handle, target)
+    local dragging = false
+    local dragStart
+    local startPosition
+
+    handle.InputBegan:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.MouseButton1 and input.UserInputType ~= Enum.UserInputType.Touch then
+            return
+        end
+
+        dragging = true
+        dragStart = input.Position
+        startPosition = target.Position
+    end)
+
+    handle.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if not dragging then
+            return
+        end
+
+        if input.UserInputType ~= Enum.UserInputType.MouseMovement and input.UserInputType ~= Enum.UserInputType.Touch then
+            return
+        end
+
+        local delta = input.Position - dragStart
+        target.Position = UDim2.new(
+            startPosition.X.Scale,
+            startPosition.X.Offset + delta.X,
+            startPosition.Y.Scale,
+            startPosition.Y.Offset + delta.Y
+        )
+    end)
+end
+
+local Window = {}
+Window.__index = Window
+
+local Tab = {}
+Tab.__index = Tab
+
+function Library:CreateWindow(config)
+    config = config or {}
+
+    local accent = config.Accent or DEFAULT_ACCENT
+    local title = config.Title or "R"
+    local width = config.Width or 560
+    local height = config.Height or 350
+
+    local screenGui = new("ScreenGui", {
+        Name = config.Name or "PinkPanelUI",
+        ResetOnSpawn = false,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    })
+
+    local parent = player:WaitForChild("PlayerGui")
+    screenGui.Parent = parent
+
+    if config.Parent == "CoreGui" then
+        pcall(function()
+            screenGui.Parent = game:GetService("CoreGui")
+        end)
+    end
+
+    local root = new("Frame", {
+        Name = "Window",
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        BackgroundColor3 = BG,
+        BorderSizePixel = 0,
+        Position = UDim2.fromScale(0.5, 0.5),
+        Size = UDim2.fromOffset(width, height)
+    }, {
+        corner(8),
+        stroke(Color3.fromRGB(35, 35, 42), 1, 0)
+    })
+    root.Parent = screenGui
+
+    local side = new("Frame", {
+        Name = "Sidebar",
+        BackgroundColor3 = Color3.fromRGB(9, 11, 14),
+        BorderSizePixel = 0,
+        Size = UDim2.new(0, 110, 1, 0)
+    }, {
+        new("UIStroke", {
+            ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+            Color = accent,
+            Thickness = 1,
+            Transparency = 0.45
+        })
+    })
+    side.Parent = root
+
+    local sideContent = new("Frame", {
+        Name = "SidebarContent",
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(8, 8),
+        Size = UDim2.new(1, -16, 1, -16)
+    }, {
+        new("UIListLayout", {
+            Padding = UDim.new(0, 7),
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+    })
+    sideContent.Parent = side
+
+    local logo = new("TextLabel", {
+        Name = "Logo",
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamBlack,
+        LayoutOrder = 1,
+        Size = UDim2.new(1, 0, 0, 58),
+        Text = title,
+        TextColor3 = accent,
+        TextScaled = true
+    }, {
+        stroke(Color3.fromRGB(255, 187, 245), 1, 0.1)
+    })
+    logo.Parent = sideContent
+
+    local top = new("Frame", {
+        Name = "TopBar",
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(110, 0),
+        Size = UDim2.new(1, -110, 0, 48)
+    })
+    top.Parent = root
+
+    local tabBar = new("Frame", {
+        Name = "Tabs",
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(14, 0),
+        Size = UDim2.new(1, -72, 1, 0)
+    }, {
+        new("UIListLayout", {
+            FillDirection = Enum.FillDirection.Horizontal,
+            Padding = UDim.new(0, 8),
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            VerticalAlignment = Enum.VerticalAlignment.Center
+        })
+    })
+    tabBar.Parent = top
+
+    local circle = new("Frame", {
+        Name = "CircleButton",
+        AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundColor3 = Color3.fromRGB(18, 18, 24),
+        BorderSizePixel = 0,
+        Position = UDim2.new(1, -14, 0.5, 0),
+        Size = UDim2.fromOffset(24, 24)
+    }, {
+        new("UICorner", {
+            CornerRadius = UDim.new(1, 0)
+        }),
+        stroke(accent, 1, 0)
+    })
+    circle.Parent = top
+
+    local divider = new("Frame", {
+        Name = "Divider",
+        BackgroundColor3 = accent,
+        BackgroundTransparency = 0.55,
+        BorderSizePixel = 0,
+        Position = UDim2.fromOffset(110, 47),
+        Size = UDim2.new(1, -110, 0, 1)
+    })
+    divider.Parent = root
+
+    local content = new("Frame", {
+        Name = "Content",
+        BackgroundTransparency = 1,
+        Position = UDim2.fromOffset(124, 62),
+        Size = UDim2.new(1, -138, 1, -76)
+    })
+    content.Parent = root
+
+    makeDraggable(top, root)
+
+    local window = setmetatable({
+        Accent = accent,
+        Gui = screenGui,
+        Root = root,
+        Sidebar = sideContent,
+        TabBar = tabBar,
+        Content = content,
+        Tabs = {},
+        ActiveTab = nil,
+        SidebarOrder = 20,
+        TabOrder = 1
+    }, Window)
+
+    return window
+end
+
+function Window:SidebarSection(title, items)
+    local label = new("TextLabel", {
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamBold,
+        LayoutOrder = self.SidebarOrder,
+        Size = UDim2.new(1, 0, 0, 14),
+        Text = title,
+        TextColor3 = MUTED,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    label.Parent = self.Sidebar
+    self.SidebarOrder += 1
+
+    for _, item in ipairs(items or {}) do
+        local text = item.Text or item[1] or tostring(item)
+        local icon = item.Icon or item[2] or ""
+        local selected = item.Selected == true
+
+        local button = new("TextButton", {
+            AutoButtonColor = false,
+            BackgroundColor3 = selected and Color3.fromRGB(40, 24, 38) or Color3.fromRGB(10, 12, 15),
+            BorderSizePixel = 0,
+            Font = Enum.Font.GothamBold,
+            LayoutOrder = self.SidebarOrder,
+            Size = UDim2.new(1, 0, 0, 26),
+            Text = icon .. (icon ~= "" and "  " or "") .. text,
+            TextColor3 = selected and TEXT or MUTED,
+            TextSize = 12
+        }, {
+            corner(4),
+            stroke(self.Accent, 1, selected and 0.1 or 1)
+        })
+        button.Parent = self.Sidebar
+        self.SidebarOrder += 1
+    end
+end
+
+function Window:Tab(name, options)
+    options = options or {}
+
+    local tabButton = new("TextButton", {
+        AutoButtonColor = false,
+        BackgroundColor3 = Color3.fromRGB(16, 17, 21),
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        Font = Enum.Font.GothamBold,
+        LayoutOrder = self.TabOrder,
+        Size = UDim2.fromOffset(math.max(58, #name * 8 + 18), 27),
+        Text = name,
+        TextColor3 = MUTED,
+        TextSize = 12
+    }, {
+        corner(4),
+        stroke(self.Accent, 1, 1)
+    })
+    tabButton.Parent = self.TabBar
+    self.TabOrder += 1
+
+    local page = new("ScrollingFrame", {
+        Name = name,
+        Active = true,
+        BackgroundTransparency = 1,
+        BorderSizePixel = 0,
+        CanvasSize = UDim2.fromOffset(0, 0),
+        ScrollBarImageColor3 = self.Accent,
+        ScrollBarThickness = 2,
+        Size = UDim2.fromScale(1, 1),
+        Visible = false
+    }, {
+        new("UIListLayout", {
+            Padding = UDim.new(0, 8),
+            SortOrder = Enum.SortOrder.LayoutOrder
+        })
+    })
+    page.Parent = self.Content
+
+    page.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        page.CanvasSize = UDim2.fromOffset(0, page.UIListLayout.AbsoluteContentSize.Y + 8)
+    end)
+
+    local tab = setmetatable({
+        Window = self,
+        Name = name,
+        Button = tabButton,
+        Page = page,
+        Order = 1
+    }, Tab)
+
+    table.insert(self.Tabs, tab)
+
+    tabButton.MouseButton1Click:Connect(function()
+        self:SelectTab(tab)
+    end)
+
+    if options.Selected or not self.ActiveTab then
+        self:SelectTab(tab)
+    end
+
+    return tab
+end
+
+function Window:SelectTab(tab)
+    self.ActiveTab = tab
+
+    for _, item in ipairs(self.Tabs) do
+        local active = item == tab
+        item.Page.Visible = active
+        item.Button.BackgroundTransparency = active and 0 or 1
+        item.Button.TextColor3 = active and self.Accent or MUTED
+        item.Button.UIStroke.Transparency = active and 0.15 or 1
+    end
+end
+
+function Tab:_row(labelText)
+    local row = new("Frame", {
+        BackgroundColor3 = Color3.fromRGB(12, 13, 16),
+        BorderSizePixel = 0,
+        LayoutOrder = self.Order,
+        Size = UDim2.new(1, 0, 0, 40)
+    }, {
+        corner(4),
+        stroke(self.Window.Accent, 1, 0.25)
+    })
+    row.Parent = self.Page
+    self.Order += 1
+
+    local label = new("TextLabel", {
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamBold,
+        Position = UDim2.fromOffset(10, 0),
+        Size = UDim2.new(0.5, -10, 1, 0),
+        Text = labelText,
+        TextColor3 = TEXT,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Left
+    })
+    label.Parent = row
+
+    return row, label
+end
+
+function Tab:Toggle(labelText, default, callback)
+    local row = self:_row(labelText)
+    local enabled = default == true
+
+    local box = new("TextButton", {
+        AutoButtonColor = false,
+        AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundColor3 = enabled and self.Window.Accent or Color3.fromRGB(22, 18, 26),
+        BorderSizePixel = 0,
+        Position = UDim2.new(1, -12, 0.5, 0),
+        Size = UDim2.fromOffset(18, 18),
+        Text = ""
+    }, {
+        corner(3),
+        stroke(self.Window.Accent, 1, enabled and 1 or 0)
+    })
+    box.Parent = row
+
+    local function set(value)
+        enabled = value
+        tween(box, 0.12, {
+            BackgroundColor3 = enabled and self.Window.Accent or Color3.fromRGB(22, 18, 26)
+        })
+
+        if callback then
+            task.spawn(callback, enabled)
+        end
+    end
+
+    box.MouseButton1Click:Connect(function()
+        set(not enabled)
+    end)
+    row.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            set(not enabled)
+        end
+    end)
+
+    return {
+        Set = set,
+        Get = function()
+            return enabled
+        end
+    }
+end
+
+function Tab:Slider(labelText, min, max, default, suffix, callback)
+    min = min or 0
+    max = max or 100
+    default = math.clamp(default or min, min, max)
+    suffix = suffix or ""
+
+    local row = self:_row(labelText)
+    local value = default
+
+    local valueLabel = new("TextLabel", {
+        AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundTransparency = 1,
+        Font = Enum.Font.GothamBold,
+        Position = UDim2.new(1, -16, 0.5, 0),
+        Size = UDim2.fromOffset(54, 18),
+        Text = tostring(value) .. suffix,
+        TextColor3 = TEXT,
+        TextSize = 12,
+        TextXAlignment = Enum.TextXAlignment.Right
+    })
+    valueLabel.Parent = row
+
+    local track = new("Frame", {
+        AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundColor3 = Color3.fromRGB(35, 18, 33),
+        BorderSizePixel = 0,
+        Position = UDim2.new(1, -72, 0.5, 0),
+        Size = UDim2.new(0, 188, 0, 8)
+    }, {
+        corner(2),
+        stroke(self.Window.Accent, 1, 0.35)
+    })
+    track.Parent = row
+
+    local fill = new("Frame", {
+        BackgroundColor3 = self.Window.Accent,
+        BorderSizePixel = 0,
+        Size = UDim2.fromScale((value - min) / (max - min), 1)
+    }, {
+        corner(2)
+    })
+    fill.Parent = track
+
+    local dragging = false
+
+    local function setFromX(x)
+        local percent = math.clamp((x - track.AbsolutePosition.X) / track.AbsoluteSize.X, 0, 1)
+        local raw = min + (max - min) * percent
+        value = math.floor(raw + 0.5)
+        valueLabel.Text = tostring(value) .. suffix
+        fill.Size = UDim2.fromScale(percent, 1)
+
+        if callback then
+            task.spawn(callback, value)
+        end
+    end
+
+    track.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            setFromX(input.Position.X)
+        end
+    end)
+
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            setFromX(input.Position.X)
+        end
+    end)
+
+    return {
+        Set = function(newValue)
+            value = math.clamp(newValue, min, max)
+            local percent = (value - min) / (max - min)
+            valueLabel.Text = tostring(value) .. suffix
+            fill.Size = UDim2.fromScale(percent, 1)
+        end,
+        Get = function()
+            return value
+        end
+    }
+end
+
+function Tab:Bind(labelText, default, callback)
+    local row = self:_row(labelText)
+    local key = default or "None"
+    local listening = false
+
+    local button = new("TextButton", {
+        AutoButtonColor = false,
+        AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundColor3 = Color3.fromRGB(18, 16, 22),
+        BorderSizePixel = 0,
+        Font = Enum.Font.GothamBold,
+        Position = UDim2.new(1, -12, 0.5, 0),
+        Size = UDim2.fromOffset(58, 24),
+        Text = tostring(key),
+        TextColor3 = TEXT,
+        TextSize = 12
+    }, {
+        corner(3),
+        stroke(self.Window.Accent, 1, 0.1)
+    })
+    button.Parent = row
+
+    button.MouseButton1Click:Connect(function()
+        listening = true
+        button.Text = "..."
+    end)
+
+    UserInputService.InputBegan:Connect(function(input, processed)
+        if processed then
+            return
+        end
+
+        if listening then
+            key = input.KeyCode ~= Enum.KeyCode.Unknown and input.KeyCode.Name or "None"
+            listening = false
+            button.Text = key
+
+            if callback then
+                task.spawn(callback, key)
+            end
+            return
+        end
+
+        if key ~= "None" and input.KeyCode.Name == key and callback then
+            task.spawn(callback, key)
+        end
+    end)
+
+    return {
+        Set = function(newKey)
+            key = newKey or "None"
+            button.Text = key
+        end,
+        Get = function()
+            return key
+        end
+    }
+end
+
+function Tab:Button(labelText, callback)
+    local row = self:_row(labelText)
+
+    local button = new("TextButton", {
+        AutoButtonColor = false,
+        AnchorPoint = Vector2.new(1, 0.5),
+        BackgroundColor3 = self.Window.Accent,
+        BorderSizePixel = 0,
+        Font = Enum.Font.GothamBold,
+        Position = UDim2.new(1, -12, 0.5, 0),
+        Size = UDim2.fromOffset(74, 24),
+        Text = "Run",
+        TextColor3 = Color3.fromRGB(15, 12, 18),
+        TextSize = 12
+    }, {
+        corner(3)
+    })
+    button.Parent = row
+
+    button.MouseButton1Click:Connect(function()
+        if callback then
+            task.spawn(callback)
+        end
+    end)
+end
+
+return setmetatable({}, Library)
