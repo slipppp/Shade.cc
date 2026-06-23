@@ -2,23 +2,31 @@ local UI = loadstring(game:HttpGet("https://raw.githubusercontent.com/slipppp/Sh
 
 local window = UI:CreateWindow({
     Title = "R",
+    Icon = "", -- exemplo: "rbxassetid://1234567890"
+    ToggleIcon = "", -- se vazio, usa o mesmo Icon
     Accent = Color3.fromRGB(255, 90, 220),
-    Width = 560,
-    Height = 350
+    Width = 460,
+    Height = 250
 })
 
 window:SidebarSection("Aim Assist", {
-    { Text = "Combat", Icon = "++", Selected = true }
+    { Text = "Combat", Icon = "++", Selected = true, Tab = "SilentAim" }
 })
 
 window:SidebarSection("Game", {
-    { Text = "Visuals", Icon = "oo" },
-    { Text = "Local", Icon = "()" },
-    { Text = "Exploits", Icon = "==" }
+    { Text = "Visuals", Icon = "oo", Tab = "ESP" },
+    { Text = "Local", Icon = "()", Tab = "Aimbot" },
+    { Text = "Exploits", Icon = "==", Tab = "TriggerBot" }
 })
 
 window:SidebarSection("Others", {
-    { Text = "Settings", Icon = "*" }
+    {
+        Text = "Settings",
+        Icon = "*",
+        Callback = function()
+            print("Settings clicked")
+        end
+    }
 })
 
 local aimbot = window:Tab("Aimbot")
