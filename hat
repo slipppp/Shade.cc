@@ -1,88 +1,183 @@
+-- Rage Silent Aim + Auto Shoot (Mobile)
 local Players = game:GetService("Players")
-local InsertService = game:GetService("InsertService")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
-local player = Players.LocalPlayer
+local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
+local Camera = workspace.CurrentCamera
 
--- CONFIG
-local ACCESSORY_ID = 78605226794898
-local ACCESSORY_COLOR = Color3.fromRGB(255, 0, 0) -- troca aqui
-local ACCESSORY_MATERIAL = Enum.Material.ForceField -- troca aqui
+local Settings = {
+    Enabled = false,
+    FOV = 360,              -- 360 = mira em qualquer lugar da tela
+    AimPart = "Head",       -- Head ou HumanoidRootPart
+    AutoShoot = true,       -- Atira automaticamente
+    ShootDelay = 0.05,      -- Delay entre tiros (segundos)
+    CheckVisible = false    -- true = só atira se ver o inimigo
+}
 
-local function applyVisualsToAccessory(accessory)
-	for _, obj in ipairs(accessory:GetDescendants()) do
-		if obj:IsA("BasePart") then
-			obj.Material = ACCESSORY_MATERIAL
-			obj.Color = ACCESSORY_COLOR
-			obj.CanCollide = false
-			obj.CastShadow = false
-		end
-	end
+-- Criar botão na tela
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Parent = LocalPlayer.PlayerGui
+
+local Button = Instance.new("TextButton")
+Button.Size = UDim2.new(0, 80, 0, 80)
+Button.Position = UDim2.new(0.83, 0, 0.83, 0)
+Button.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+Button.Text = "🔥"
+Button.TextSize = 35
+Button.Font = Enum.Font.GothamBold
+Button.Parent = ScreenGui
+
+-- Variáveis de controle
+local canShoot = true
+local currentTarget = nil
+
+-- Função pra pegar o inimigo mais próximo (qualquer lugar da tela)
+local function GetClosestEnemy()
+    local closest = nil
+    local closestDist = Settings.FOV
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+    
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer and player.Character and player.Character:FindFirstChild("Humanoid") and player.Character.Humanoid.Health > 0 then
+            
+            local targetPart = player.Character:FindFirstChild(Settings.AimPart) or player.Character:FindFirstChild("HumanoidRootPart")
+            if not targetPart then continue end
+            
+            local screenPos, onScreen = Camera:WorldToScreenPoint(targetPart.Position)
+            if not onScreen then continue end
+            
+            -- Verifica se está visível (opcional)
+            if Settings.CheckVisible then
+                local ray = Ray.new(Camera.CFrame.Position, (targetPart.Position - Camera.CFrame.Position).Unit * 1000)
+                local hit = workspace:FindPartOnRay(ray, LocalPlayer.Character)
+                if hit and hit:IsDescendantOf(player.Character) == false then
+                    continue -- Inimigo atrás da parede
+                end
+            end
+            
+            local distance = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+            
+            if distance < closestDist then
+                closestDist = distance
+                closest = targetPart
+            end
+        end
+    end
+    
+    return closest
 end
 
-local function weldAccessoryToHead(character, accessory)
-	local head = character:FindFirstChild("Head")
-	if not head then return end
-
-	local handle = accessory:FindFirstChild("Handle")
-	if not handle or not handle:IsA("BasePart") then
-		warn("Acessório sem Handle")
-		return
-	end
-
-	accessory.Parent = character
-	handle.Anchored = false
-	handle.CanCollide = false
-
-	-- remove welds antigos caso existam
-	for _, v in ipairs(handle:GetChildren()) do
-		if v:IsA("Weld") or v:IsA("WeldConstraint") or v:IsA("Motor6D") then
-			v:Destroy()
-		end
-	end
-
-	-- posiciona em cima da cabeça
-	handle.CFrame = head.CFrame
-
-	local weld = Instance.new("Weld")
-	weld.Name = "AccessoryWeld"
-	weld.Part0 = head
-	weld.Part1 = handle
-	weld.C0 = CFrame.new(0, 0.5, 0) -- ajusta altura aqui se precisar
-	weld.Parent = head
+-- Função pra atirar (simula clique sem bugar câmera)
+local function Shoot()
+    if not canShoot then return end
+    if not Settings.Enabled then return end
+    
+    local target = GetClosestEnemy()
+    if not target then return end
+    
+    currentTarget = target
+    
+    -- POSICIONA A MIRA NO ALVO (SILENT AIM)
+    local targetPos = target.Position + Vector3.new(0, 0.5, 0)
+    local fakeCFrame = CFrame.new(Mouse.Hit.Position, targetPos)
+    
+    -- Atualiza o mouse sem mexer na câmera
+    Mouse.Target = target
+    Mouse.Hit = fakeCFrame
+    
+    -- SIMULA O CLICK SEM BUGAR A CÂMERA
+    -- Método 1: VirtualInputManager (mais suave)
+    VirtualInputManager:SendMouseButtonEvent(
+        Camera.ViewportSize.X / 2,  -- Centro da tela X
+        Camera.ViewportSize.Y / 2,  -- Centro da tela Y
+        0,                          -- Button (0 = esquerdo)
+        true,                       -- Pressed (true = clicou)
+        game,                       -- Objeto
+        0                           -- UserID
+    )
+    
+    -- Solta o clique depois de um tempo
+    task.wait(0.01)
+    VirtualInputManager:SendMouseButtonEvent(
+        Camera.ViewportSize.X / 2,
+        Camera.ViewportSize.Y / 2,
+        0,
+        false,
+        game,
+        0
+    )
+    
+    -- Método 2 alternativo (se o 1 não funcionar, descomenta esse)
+    -- mouse1click() -- Função nativa do Roblox
+    
+    -- Delay entre tiros
+    canShoot = false
+    task.wait(Settings.ShootDelay)
+    canShoot = true
 end
 
-local function equipAccessory()
-	local character = player.Character or player.CharacterAdded:Wait()
-
-	local success, model = pcall(function()
-		return InsertService:LoadAsset(ACCESSORY_ID)
-	end)
-
-	if not success or not model then
-		warn("Não foi possível carregar o acessório:", ACCESSORY_ID)
-		return
-	end
-
-	local accessory = model:FindFirstChildWhichIsA("Accessory") or model:FindFirstChildWhichIsA("Hat")
-	if not accessory then
-		warn("Nenhum Accessory encontrado no asset")
-		model:Destroy()
-		return
-	end
-
-	accessory = accessory:Clone()
-	model:Destroy()
-
-	applyVisualsToAccessory(accessory)
-	weldAccessoryToHead(character, accessory)
-end
-
-if player.Character then
-	task.wait(1)
-	equipAccessory()
-end
-
-player.CharacterAdded:Connect(function()
-	task.wait(1)
-	equipAccessory()
+-- Loop principal - atira automaticamente
+RunService.RenderStepped:Connect(function()
+    if Settings.Enabled and Settings.AutoShoot then
+        Shoot()
+    end
 end)
+
+-- Toggle com o botão
+Button.MouseButton1Click:Connect(function()
+    Settings.Enabled = not Settings.Enabled
+    Button.BackgroundColor3 = Settings.Enabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+    Button.Text = Settings.Enabled and "✅" or "🔥"
+    print("Rage Silent Aim: " .. tostring(Settings.Enabled))
+end)
+
+-- Ativar/Desativar com 3 toques na tela
+local touchCount = 0
+UserInputService.TouchStarted:Connect(function(touch, processed)
+    if processed then return end
+    
+    touchCount = touchCount + 1
+    
+    if touchCount >= 3 then
+        Settings.Enabled = not Settings.Enabled
+        Button.BackgroundColor3 = Settings.Enabled and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 0, 0)
+        Button.Text = Settings.Enabled and "✅" or "🔥"
+        print("Rage Silent Aim: " .. tostring(Settings.Enabled))
+        task.wait(0.5)
+        touchCount = 0
+    end
+    
+    task.wait(0.3)
+    touchCount = 0
+end)
+
+-- Mostra o alvo atual na tela (opcional)
+local function CreateESP()
+    local esp = Instance.new("BillboardGui")
+    esp.Size = UDim2.new(0, 100, 0, 30)
+    esp.StudsOffset = Vector3.new(0, 2.5, 0)
+    esp.Parent = LocalPlayer.Character
+    
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.Text = "🎯"
+    label.TextSize = 24
+    label.TextColor3 = Color3.fromRGB(0, 255, 0)
+    label.Parent = esp
+    
+    return esp
+end
+
+-- Cria ESP no personagem (opcional)
+pcall(function()
+    if not LocalPlayer.Character:FindFirstChild("AimESP") then
+        CreateESP()
+    end
+end)
+
+print("🔥 Rage Silent Aim carregado!")
+print("Toque no botão ou 3 dedos na tela para ativar/desativar")
