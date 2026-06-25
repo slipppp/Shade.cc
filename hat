@@ -1,24 +1,26 @@
--- SCRIPT DE DIAGNÓSTICO - Verifica erros e testa o chapéu
-print("=== INICIANDO DIAGNÓSTICO DO CHAPÉU CHINÊS ===")
+-- SCRIPT PARA MOBILE - Chapéu Chinês com GUI Móvel
+-- Coloque em StarterPlayerScripts
 
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+
 local player = Players.LocalPlayer
 local character = player.Character or player.CharacterAdded:Wait()
 local head = character:WaitForChild("Head")
 
-print("✅ Jogador encontrado:", player.Name)
-print("✅ Personagem encontrado:", character.Name)
-print("✅ Cabeça encontrada:", head.Name)
+local hatModel = nil
+local isHatEquipped = false
+local isMenuOpen = false
+local menuGui = nil
+local dragData = nil
 
--- Função para criar um chapéu simples de teste
-local function createTestHat()
-    print("🔄 Criando chapéu de teste...")
+-- CRIAR CHAPÉU
+local function createHat()
+    local model = Instance.new("Model")
+    model.Name = "ChineseHat"
     
-    -- Criar modelo
-    local hatModel = Instance.new("Model")
-    hatModel.Name = "TestHat"
-    
-    -- Base do chapéu
     local base = Instance.new("Part")
     base.Name = "Base"
     base.Size = Vector3.new(3.5, 0.3, 3.5)
@@ -27,10 +29,8 @@ local function createTestHat()
     base.Material = Enum.Material.Wood
     base.CanCollide = false
     base.Anchored = false
-    base.Parent = hatModel
-    print("✅ Base criada")
+    base.Parent = model
     
-    -- Topo do chapéu
     local top = Instance.new("Part")
     top.Name = "Top"
     top.Size = Vector3.new(2, 1.2, 2)
@@ -39,10 +39,8 @@ local function createTestHat()
     top.Material = Enum.Material.Wood
     top.CanCollide = false
     top.Anchored = false
-    top.Parent = hatModel
-    print("✅ Topo criado")
+    top.Parent = model
     
-    -- Fita vermelha
     local ribbon = Instance.new("Part")
     ribbon.Name = "Ribbon"
     ribbon.Size = Vector3.new(3.3, 0.15, 0.25)
@@ -50,316 +48,433 @@ local function createTestHat()
     ribbon.Material = Enum.Material.Fabric
     ribbon.CanCollide = false
     ribbon.Anchored = false
-    ribbon.Parent = hatModel
-    print("✅ Fita criada")
+    ribbon.Parent = model
     
-    -- Posicionar na cabeça
     local headCFrame = head.CFrame
     local hatCFrame = headCFrame * CFrame.new(0, 1.3, 0)
     
     base.CFrame = hatCFrame * CFrame.new(0, -0.2, 0)
     top.CFrame = hatCFrame * CFrame.new(0, 0.8, 0)
     ribbon.CFrame = hatCFrame * CFrame.new(0, 0.1, 0)
-    print("✅ Posições definidas")
     
-    -- Conectar com weld
     local weld = Instance.new("Weld")
     weld.Part0 = head
     weld.Part1 = base
     weld.C0 = head.CFrame:Inverse() * hatCFrame
     weld.Parent = base
-    print("✅ Weld criado")
     
-    -- Adicionar ao personagem
-    hatModel.Parent = character
-    print("✅ Chapéu adicionado ao personagem")
-    
-    return hatModel
+    model.Parent = character
+    return model
 end
 
--- Função para tentar carregar o acessório pelo ID
-local function loadAccessoryById(id)
-    print("🔄 Tentando carregar acessório ID:", id)
-    
-    local success, result = pcall(function()
-        return game:GetService("MarketplaceService"):LoadAsset(id)
-    end)
-    
-    if success and result then
-        print("✅ Acessório carregado com sucesso!")
-        
-        -- Tentar encontrar o modelo do chapéu
-        local hatModel = result:FindFirstChildWhichIsA("Model") or result:FindFirstChildOfClass("Model")
+-- EQUIPAR/REMOVER
+local function toggleHat()
+    if isHatEquipped then
         if hatModel then
-            print("✅ Modelo encontrado:", hatModel.Name)
-            
-            -- Tentar encontrar o Handle
-            local handle = hatModel:FindFirstChild("Handle") or hatModel:FindFirstChildWhichIsA("BasePart")
-            if handle then
-                print("✅ Handle encontrado:", handle.Name)
-                
-                -- Criar Accessory
-                local accessory = Instance.new("Accessory")
-                accessory.Name = "ChineseHat"
-                accessory.Handle = handle
-                accessory.Parent = character
-                
-                -- Posicionar na cabeça
-                local head = character:FindFirstChild("Head")
-                if head then
-                    local weld = Instance.new("Weld")
-                    weld.Part0 = head
-                    weld.Part1 = handle
-                    weld.C0 = CFrame.new(0, 1.2, 0)
-                    weld.Parent = handle
-                    print("✅ Acessório equipado com sucesso!")
-                    return accessory
-                else
-                    print("❌ Cabeça não encontrada!")
-                end
-            else
-                print("❌ Handle não encontrado no modelo!")
-            end
-        else
-            print("❌ Modelo não encontrado no acessório!")
+            hatModel:Destroy()
+            hatModel = nil
         end
+        isHatEquipped = false
     else
-        print("❌ Erro ao carregar acessório:", result)
+        hatModel = createHat()
+        isHatEquipped = true
     end
-    
-    return nil
 end
 
--- Menu simples de diagnóstico
-local function createDiagnosticMenu()
-    print("🔄 Criando menu de diagnóstico...")
-    
+-- CRIAR GUI MÓVEL
+local function createMobileGUI()
     local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "DiagnosticMenu"
+    screenGui.Name = "HatMenuMobile"
+    screenGui.ResetOnSpawn = false
     screenGui.Parent = player.PlayerGui
     
+    -- FUNDO DO MENU (DRAGÁVEL)
     local mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 400, 0, 300)
-    mainFrame.Position = UDim2.new(0.5, -200, 0.5, -150)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-    mainFrame.BackgroundTransparency = 0.1
+    mainFrame.Name = "MainFrame"
+    mainFrame.Size = UDim2.new(0, 320, 0, 450)
+    mainFrame.Position = UDim2.new(0.5, -160, 0.5, -225)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 30)
+    mainFrame.BackgroundTransparency = 0.15
     mainFrame.BorderSizePixel = 0
+    mainFrame.Visible = false
     mainFrame.Parent = screenGui
     
     local corner = Instance.new("UICorner")
-    corner.CornerRadius = UDim.new(0, 12)
+    corner.CornerRadius = UDim.new(0, 16)
     corner.Parent = mainFrame
     
-    -- Título
-    local title = Instance.new("TextLabel")
-    title.Size = UDim2.new(1, 0, 0, 40)
-    title.Position = UDim2.new(0, 0, 0, 0)
-    title.BackgroundTransparency = 1
-    title.Text = "🔧 Diagnóstico do Chapéu"
-    title.TextColor3 = Color3.fromRGB(255, 215, 0)
-    title.TextScaled = true
-    title.Font = Enum.Font.GothamBold
-    title.Parent = mainFrame
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 2
+    stroke.Color = Color3.fromRGB(255, 200, 50)
+    stroke.Transparency = 0.6
+    stroke.Parent = mainFrame
     
-    -- Status
-    local statusLabel = Instance.new("TextLabel")
-    statusLabel.Name = "StatusLabel"
-    statusLabel.Size = UDim2.new(0.9, 0, 0, 40)
-    statusLabel.Position = UDim2.new(0.05, 0, 0.15, 0)
-    statusLabel.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    statusLabel.Text = "Status: Aguardando..."
-    statusLabel.TextScaled = true
-    statusLabel.Font = Enum.Font.GothamSemibold
-    statusLabel.Parent = mainFrame
+    -- BARRA DE TÍTULO (PARA ARRASTAR)
+    local titleBar = Instance.new("Frame")
+    titleBar.Name = "TitleBar"
+    titleBar.Size = UDim2.new(1, 0, 0, 45)
+    titleBar.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+    titleBar.BackgroundTransparency = 0.3
+    titleBar.BorderSizePixel = 0
+    titleBar.Parent = mainFrame
     
-    local statusCorner = Instance.new("UICorner")
-    statusCorner.CornerRadius = UDim.new(0, 6)
-    statusCorner.Parent = statusLabel
+    local titleCorner = Instance.new("UICorner")
+    titleCorner.CornerRadius = UDim.new(0, 16)
+    titleCorner.Parent = titleBar
     
-    -- Botão Criar Chapéu Teste
-    local testButton = Instance.new("TextButton")
-    testButton.Size = UDim2.new(0.4, 0, 0, 40)
-    testButton.Position = UDim2.new(0.05, 0, 0.35, 0)
-    testButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-    testButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    testButton.Text = "🎩 Criar Teste"
-    testButton.TextScaled = true
-    testButton.Font = Enum.Font.GothamBold
-    testButton.Parent = mainFrame
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -60, 1, 0)
+    titleLabel.Position = UDim2.new(0, 30, 0, 0)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = "🎩 Chapéu Chinês"
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.TextScaled = true
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.Parent = titleBar
     
-    local testCorner = Instance.new("UICorner")
-    testCorner.CornerRadius = UDim.new(0, 6)
-    testCorner.Parent = testButton
-    
-    -- Botão Carregar Acessório
-    local loadButton = Instance.new("TextButton")
-    loadButton.Size = UDim2.new(0.4, 0, 0, 40)
-    loadButton.Position = UDim2.new(0.5, 0, 0.35, 0)
-    loadButton.BackgroundColor3 = Color3.fromRGB(0, 100, 200)
-    loadButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    loadButton.Text = "📦 Carregar ID"
-    loadButton.TextScaled = true
-    loadButton.Font = Enum.Font.GothamBold
-    loadButton.Parent = mainFrame
-    
-    local loadCorner = Instance.new("UICorner")
-    loadCorner.CornerRadius = UDim.new(0, 6)
-    loadCorner.Parent = loadButton
-    
-    -- Botão Limpar
-    local clearButton = Instance.new("TextButton")
-    clearButton.Size = UDim.new(0.9, 0, 0, 40)
-    clearButton.Position = UDim2.new(0.05, 0, 0.55, 0)
-    clearButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-    clearButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    clearButton.Text = "🗑️ Remover Chapéu"
-    clearButton.TextScaled = true
-    clearButton.Font = Enum.Font.GothamBold
-    clearButton.Parent = mainFrame
-    
-    local clearCorner = Instance.new("UICorner")
-    clearCorner.CornerRadius = UDim.new(0, 6)
-    clearCorner.Parent = clearButton
-    
-    -- Log de diagnóstico
-    local logFrame = Instance.new("ScrollingFrame")
-    logFrame.Size = UDim2.new(0.9, 0, 0, 60)
-    logFrame.Position = UDim2.new(0.05, 0, 0.7, 0)
-    logFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    logFrame.BorderSizePixel = 0
-    logFrame.Parent = mainFrame
-    
-    local logCorner = Instance.new("UICorner")
-    logCorner.CornerRadius = UDim.new(0, 6)
-    logCorner.Parent = logFrame
-    
-    local logLabel = Instance.new("TextLabel")
-    logLabel.Size = UDim2.new(1, 0, 1, 0)
-    logLabel.BackgroundTransparency = 1
-    logLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    logLabel.Text = "Log: Aguardando ações..."
-    logLabel.TextScaled = false
-    logLabel.Font = Enum.Font.Gotham
-    logLabel.TextWrapped = true
-    logLabel.Parent = logFrame
-    
-    local function updateLog(text)
-        logLabel.Text = "Log: " .. text
-        print(text)
-    end
-    
-    -- Funções dos botões
-    local currentHat = nil
-    
-    testButton.MouseButton1Click:Connect(function()
-        updateLog("Criando chapéu de teste...")
-        
-        -- Remover chapéu antigo
-        if currentHat then
-            currentHat:Destroy()
-            currentHat = nil
-        end
-        
-        currentHat = createTestHat()
-        if currentHat then
-            updateLog("✅ Chapéu de teste criado com sucesso!")
-            statusLabel.Text = "Status: ✅ Chapéu equipado (Teste)"
-            statusLabel.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-        else
-            updateLog("❌ Erro ao criar chapéu de teste!")
-            statusLabel.Text = "Status: ❌ Erro!"
-            statusLabel.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-        end
-    end)
-    
-    loadButton.MouseButton1Click:Connect(function()
-        updateLog("Carregando acessório ID: 78605226794898...")
-        
-        -- Remover chapéu antigo
-        if currentHat then
-            currentHat:Destroy()
-            currentHat = nil
-        end
-        
-        local accessory = loadAccessoryById(78605226794898)
-        if accessory then
-            currentHat = accessory
-            updateLog("✅ Acessório carregado com sucesso!")
-            statusLabel.Text = "Status: ✅ Acessório equipado"
-            statusLabel.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
-        else
-            updateLog("❌ Erro ao carregar acessório!")
-            statusLabel.Text = "Status: ❌ Erro ao carregar!"
-            statusLabel.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
-        end
-    end)
-    
-    clearButton.MouseButton1Click:Connect(function()
-        if currentHat then
-            currentHat:Destroy()
-            currentHat = nil
-            updateLog("🗑️ Chapéu removido!")
-            statusLabel.Text = "Status: ⚪ Sem chapéu"
-            statusLabel.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        else
-            updateLog("⚠️ Nenhum chapéu para remover!")
-        end
-    end)
-    
-    -- Botão fechar
-    local closeButton = Instance.new("TextButton")
-    closeButton.Size = UDim2.new(0, 30, 0, 30)
-    closeButton.Position = UDim2.new(1, -35, 0, 5)
-    closeButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-    closeButton.Text = "✕"
-    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    closeButton.TextScaled = true
-    closeButton.Font = Enum.Font.GothamBold
-    closeButton.Parent = mainFrame
+    -- BOTÃO FECHAR
+    local closeBtn = Instance.new("TextButton")
+    closeBtn.Name = "CloseBtn"
+    closeBtn.Size = UDim2.new(0, 35, 0, 35)
+    closeBtn.Position = UDim2.new(1, -40, 0, 5)
+    closeBtn.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+    closeBtn.Text = "✕"
+    closeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeBtn.TextScaled = true
+    closeBtn.Font = Enum.Font.GothamBold
+    closeBtn.Parent = titleBar
     
     local closeCorner = Instance.new("UICorner")
-    closeCorner.CornerRadius = UDim.new(0, 15)
-    closeCorner.Parent = closeButton
+    closeCorner.CornerRadius = UDim.new(0, 8)
+    closeCorner.Parent = closeBtn
     
-    closeButton.MouseButton1Click:Connect(function()
-        screenGui:Destroy()
+    -- BOTÃO TOGGLE (GRANDE PARA MOBILE)
+    local toggleBtn = Instance.new("TextButton")
+    toggleBtn.Name = "ToggleBtn"
+    toggleBtn.Size = UDim2.new(0.85, 0, 0, 60)
+    toggleBtn.Position = UDim2.new(0.075, 0, 0.14, 0)
+    toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+    toggleBtn.Text = "🔴 REMOVER CHAPÉU"
+    toggleBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+    toggleBtn.TextScaled = true
+    toggleBtn.Font = Enum.Font.GothamBold
+    toggleBtn.Parent = mainFrame
+    
+    local toggleCorner = Instance.new("UICorner")
+    toggleCorner.CornerRadius = UDim.new(0, 12)
+    toggleCorner.Parent = toggleBtn
+    
+    -- SEÇÃO CORES
+    local colorLabel = Instance.new("TextLabel")
+    colorLabel.Size = UDim2.new(1, 0, 0, 30)
+    colorLabel.Position = UDim2.new(0, 0, 0.30, 0)
+    colorLabel.BackgroundTransparency = 1
+    colorLabel.Text = "🎨 CORES"
+    colorLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    colorLabel.TextScaled = true
+    colorLabel.Font = Enum.Font.GothamBold
+    colorLabel.Parent = mainFrame
+    
+    local colorGrid = Instance.new("Frame")
+    colorGrid.Size = UDim2.new(0.9, 0, 0, 80)
+    colorGrid.Position = UDim2.new(0.05, 0, 0.37, 0)
+    colorGrid.BackgroundTransparency = 1
+    colorGrid.Parent = mainFrame
+    
+    local colorLayout = Instance.new("UIGridLayout")
+    colorLayout.CellSize = UDim2.new(0, 40, 0, 40)
+    colorLayout.CellPadding = UDim2.new(0, 8, 0, 8)
+    colorLayout.FillDirection = Enum.FillDirection.Horizontal
+    colorLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    colorLayout.Parent = colorGrid
+    
+    local cores = {
+        Color3.fromRGB(218, 165, 32),
+        Color3.fromRGB(255, 0, 0),
+        Color3.fromRGB(0, 0, 255),
+        Color3.fromRGB(0, 255, 0),
+        Color3.fromRGB(0, 0, 0),
+        Color3.fromRGB(255, 255, 255)
+    }
+    
+    for _, cor in ipairs(cores) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, 40, 0, 40)
+        btn.BackgroundColor3 = cor
+        btn.BorderSizePixel = 2
+        btn.BorderColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Text = ""
+        btn.Parent = colorGrid
+        
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 20)
+        btnCorner.Parent = btn
+        
+        btn.MouseButton1Click:Connect(function()
+            if hatModel then
+                for _, part in ipairs(hatModel:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.BrickColor = BrickColor.new(cor)
+                    end
+                end
+            end
+        end)
+        
+        btn.TouchTap:Connect(function()
+            if hatModel then
+                for _, part in ipairs(hatModel:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.BrickColor = BrickColor.new(cor)
+                    end
+                end
+            end
+        end)
+    end
+    
+    -- SEÇÃO MATERIAIS
+    local matLabel = Instance.new("TextLabel")
+    matLabel.Size = UDim2.new(1, 0, 0, 30)
+    matLabel.Position = UDim2.new(0, 0, 0.56, 0)
+    matLabel.BackgroundTransparency = 1
+    matLabel.Text = "📦 MATERIAIS"
+    matLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    matLabel.TextScaled = true
+    matLabel.Font = Enum.Font.GothamBold
+    matLabel.Parent = mainFrame
+    
+    local matGrid = Instance.new("Frame")
+    matGrid.Size = UDim2.new(0.9, 0, 0, 60)
+    matGrid.Position = UDim2.new(0.05, 0, 0.62, 0)
+    matGrid.BackgroundTransparency = 1
+    matGrid.Parent = mainFrame
+    
+    local matLayout = Instance.new("UIGridLayout")
+    matLayout.CellSize = UDim2.new(0, 70, 0, 35)
+    matLayout.CellPadding = UDim2.new(0, 8, 0, 8)
+    matLayout.FillDirection = Enum.FillDirection.Horizontal
+    matLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    matLayout.Parent = matGrid
+    
+    local materiais = {
+        {Nome = "Madeira", Mat = Enum.Material.Wood},
+        {Nome = "Plástico", Mat = Enum.Material.Plastic},
+        {Nome = "Metal", Mat = Enum.Material.Metal},
+        {Nome = "Neon", Mat = Enum.Material.Neon}
+    }
+    
+    for _, mat in ipairs(materiais) do
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, 70, 0, 35)
+        btn.BackgroundColor3 = Color3.fromRGB(60, 60, 80)
+        btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+        btn.Text = mat.Nome
+        btn.TextScaled = true
+        btn.Font = Enum.Font.GothamSemibold
+        btn.Parent = matGrid
+        
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 8)
+        btnCorner.Parent = btn
+        
+        btn.MouseButton1Click:Connect(function()
+            if hatModel then
+                for _, part in ipairs(hatModel:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.Material = mat.Mat
+                    end
+                end
+            end
+        end)
+        
+        btn.TouchTap:Connect(function()
+            if hatModel then
+                for _, part in ipairs(hatModel:GetDescendants()) do
+                    if part:IsA("BasePart") then
+                        part.Material = mat.Mat
+                    end
+                end
+            end
+        end)
+    end
+    
+    -- BOTÃO ABRIR MENU (FLUTUANTE - ARRASTÁVEL)
+    local floatingBtn = Instance.new("TextButton")
+    floatingBtn.Name = "FloatingBtn"
+    floatingBtn.Size = UDim2.new(0, 70, 0, 70)
+    floatingBtn.Position = UDim2.new(0.85, -35, 0.85, -35)
+    floatingBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+    floatingBtn.Text = "🎩"
+    floatingBtn.TextColor3 = Color3.fromRGB(0, 0, 0)
+    floatingBtn.TextScaled = true
+    floatingBtn.Font = Enum.Font.GothamBold
+    floatingBtn.Parent = screenGui
+    
+    local floatCorner = Instance.new("UICorner")
+    floatCorner.CornerRadius = UDim.new(0, 35)
+    floatCorner.Parent = floatingBtn
+    
+    local floatStroke = Instance.new("UIStroke")
+    floatStroke.Thickness = 3
+    floatStroke.Color = Color3.fromRGB(255, 255, 255)
+    floatStroke.Transparency = 0.5
+    floatStroke.Parent = floatingBtn
+    
+    -- BOTÃO FECHAR DO FLOATING
+    local floatClose = Instance.new("TextButton")
+    floatClose.Name = "FloatClose"
+    floatClose.Size = UDim2.new(0, 25, 0, 25)
+    floatClose.Position = UDim2.new(0.7, 0, 0.7, 0)
+    floatClose.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    floatClose.Text = "✕"
+    floatClose.TextColor3 = Color3.fromRGB(255, 255, 255)
+    floatClose.TextScaled = true
+    floatClose.Font = Enum.Font.GothamBold
+    floatClose.Parent = floatingBtn
+    
+    local floatCloseCorner = Instance.new("UICorner")
+    floatCloseCorner.CornerRadius = UDim.new(0, 12)
+    floatCloseCorner.Parent = floatClose
+    
+    floatClose.Visible = false
+    
+    -- FUNÇÃO ARRASTAR
+    local function makeDraggable(frame, button)
+        local dragStart = nil
+        local startPos = nil
+        
+        local function onInputBegan(input)
+            if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragStart = input.Position
+                startPos = frame.Position
+                frame.BackgroundTransparency = 0.3
+            end
+        end
+        
+        local function onInputChanged(input)
+            if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseMovement then
+                if dragStart and startPos then
+                    local delta = input.Position - dragStart
+                    local scaleX = delta.X / (frame.AbsoluteSize.X / frame.Size.X.Scale)
+                    local scaleY = delta.Y / (frame.AbsoluteSize.Y / frame.Size.Y.Scale)
+                    frame.Position = UDim2.new(
+                        startPos.X.Scale + (delta.X / (frame.AbsoluteSize.X / frame.Size.X.Scale)),
+                        startPos.X.Offset + delta.X,
+                        startPos.Y.Scale + (delta.Y / (frame.AbsoluteSize.Y / frame.Size.Y.Scale)),
+                        startPos.Y.Offset + delta.Y
+                    )
+                end
+            end
+        end
+        
+        local function onInputEnded(input)
+            if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+                dragStart = nil
+                startPos = nil
+                frame.BackgroundTransparency = 0.15
+            end
+        end
+        
+        button.InputBegan:Connect(onInputBegan)
+        button.InputChanged:Connect(onInputChanged)
+        button.InputEnded:Connect(onInputEnded)
+        
+        frame.InputBegan:Connect(onInputBegan)
+        frame.InputChanged:Connect(onInputChanged)
+        frame.InputEnded:Connect(onInputEnded)
+    end
+    
+    -- Tornar arrastável
+    makeDraggable(mainFrame, titleBar)
+    makeDraggable(floatingBtn, floatingBtn)
+    
+    -- FUNÇÕES DOS BOTÕES
+    closeBtn.MouseButton1Click:Connect(function()
+        mainFrame.Visible = false
+        isMenuOpen = false
+        floatClose.Visible = false
     end)
     
-    print("✅ Menu de diagnóstico criado!")
-    return screenGui
+    closeBtn.TouchTap:Connect(function()
+        mainFrame.Visible = false
+        isMenuOpen = false
+        floatClose.Visible = false
+    end)
+    
+    toggleBtn.MouseButton1Click:Connect(function()
+        toggleHat()
+        if isHatEquipped then
+            toggleBtn.Text = "🔴 REMOVER CHAPÉU"
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+        else
+            toggleBtn.Text = "🟢 EQUIPAR CHAPÉU"
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+        end
+    end)
+    
+    toggleBtn.TouchTap:Connect(function()
+        toggleHat()
+        if isHatEquipped then
+            toggleBtn.Text = "🔴 REMOVER CHAPÉU"
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+        else
+            toggleBtn.Text = "🟢 EQUIPAR CHAPÉU"
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+        end
+    end)
+    
+    floatingBtn.MouseButton1Click:Connect(function()
+        isMenuOpen = not isMenuOpen
+        mainFrame.Visible = isMenuOpen
+        floatClose.Visible = isMenuOpen
+        if isMenuOpen then
+            mainFrame.Position = UDim2.new(0.5, -160, 0.5, -225)
+        end
+    end)
+    
+    floatingBtn.TouchTap:Connect(function()
+        isMenuOpen = not isMenuOpen
+        mainFrame.Visible = isMenuOpen
+        floatClose.Visible = isMenuOpen
+        if isMenuOpen then
+            mainFrame.Position = UDim2.new(0.5, -160, 0.5, -225)
+        end
+    end)
+    
+    floatClose.MouseButton1Click:Connect(function()
+        floatingBtn.Visible = false
+        mainFrame.Visible = false
+        isMenuOpen = false
+    end)
+    
+    floatClose.TouchTap:Connect(function()
+        floatingBtn.Visible = false
+        mainFrame.Visible = false
+        isMenuOpen = false
+    end)
+    
+    return screenGui, toggleBtn, floatingBtn
 end
 
--- Iniciar diagnóstico
-print("🔄 Iniciando diagnóstico...")
+-- CRIAR GUI
+local gui, toggleBtn, floatingBtn = createMobileGUI()
 
--- Verificar se o jogador está em um jogo
-if not game:IsLoaded() then
-    print("⏳ Aguardando jogo carregar...")
-    game.Loaded:Wait()
-    print("✅ Jogo carregado!")
-end
+-- EQUIPAR AUTOMATICAMENTE
+task.wait(0.5)
+toggleHat()
+toggleBtn.Text = "🔴 REMOVER CHAPÉU"
+toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
 
--- Verificar permissões
-local success, hasPermission = pcall(function()
-    return game:GetService("MarketplaceService"):UserOwnsGamePassAsync(player.UserId, 0)
+-- RE-EQUIPAR AO RENASCER
+player.CharacterAdded:Connect(function(newChar)
+    character = newChar
+    head = character:WaitForChild("Head")
+    task.wait(0.5)
+    if isHatEquipped then
+        if hatModel then
+            hatModel:Destroy()
+            hatModel = nil
+        end
+        hatModel = createHat()
+        isHatEquipped = true
+    end
 end)
-
-if success then
-    print("✅ Verificação de permissões concluída")
-else
-    print("⚠️ Não foi possível verificar permissões:", hasPermission)
-end
-
--- Criar menu
-task.wait(1)
-local menu = createDiagnosticMenu()
-
-print("=== DIAGNÓSTICO CONCLUÍDO ===")
-print("📋 Instruções:")
-print("1. Clique em 'Criar Teste' para ver se o chapéu básico funciona")
-print("2. Clique em 'Carregar ID' para tentar carregar o acessório específico")
-print("3. Verifique o log na parte inferior do menu")
-print("4. Olhe o console (F9) para mensagens detalhadas")
-print("5. Se o chapéu de teste funcionar, o problema é no acessório")
-print("6. Se nenhum funcionar, pode ser problema de permissão ou conexão")
