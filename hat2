@@ -1,0 +1,57 @@
+-- Script para usar o acessório real (ID: 78605226794898)
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
+-- ID do acessório
+local HAT_ID = 78605226794898
+
+-- Função para equipar o acessório
+local function equipRealHat()
+    local character = player.Character
+    if not character then return end
+    
+    -- Criar o Handle (acessório)
+    local handle = Instance.new("Part")
+    handle.Name = "Handle"
+    handle.Size = Vector3.new(1, 1, 1)
+    handle.CanCollide = false
+    handle.Anchored = false
+    handle.Transparency = 1
+    handle.Parent = character
+    
+    -- Criar o acessório
+    local accessory = Instance.new("Accessory")
+    accessory.Name = "ChineseHat"
+    accessory.Handle = handle
+    accessory.Parent = character
+    
+    -- Carregar o acessório do ID
+    local hatAsset = game:GetService("MarketplaceService"):LoadAsset(HAT_ID)
+    if hatAsset then
+        -- Pegar o modelo do chapéu
+        local hatModel = hatAsset:FindFirstChildWhichIsA("Model")
+        if hatModel then
+            hatModel.Parent = accessory
+            -- Posicionar na cabeça
+            local head = character:FindFirstChild("Head")
+            if head then
+                local weld = Instance.new("Weld")
+                weld.Part0 = head
+                weld.Part1 = hatModel:FindFirstChildWhichIsA("BasePart")
+                weld.C0 = CFrame.new(0, 1.2, 0)
+                weld.Parent = hatModel
+            end
+        end
+    end
+end
+
+-- Equipar automaticamente
+player.CharacterAdded:Connect(function()
+    task.wait(1)
+    equipRealHat()
+end)
+
+if player.Character then
+    task.wait(1)
+    equipRealHat()
+end
