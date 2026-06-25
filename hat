@@ -1,4 +1,4 @@
--- SCRIPT PARA MOBILE - Chapéu Chinês com GUI Móvel
+-- SCRIPT PARA MOBILE - Chapéu Chinês ID: 78605226794898
 -- Coloque em StarterPlayerScripts
 
 local Players = game:GetService("Players")
@@ -15,14 +15,92 @@ local isHatEquipped = false
 local isMenuOpen = false
 local menuGui = nil
 local dragData = nil
+local hatAttachment = nil
 
--- CRIAR CHAPÉU
-local function createHat()
+-- FUNÇÃO PARA CARREGAR O ACESSÓRIO PELO ID
+local function loadAccessoryById(id)
+    local success, result = pcall(function()
+        return game:GetService("MarketplaceService"):LoadAsset(id)
+    end)
+    
+    if not success or not result then
+        return nil
+    end
+    
+    local hatModel = result:FindFirstChildWhichIsA("Model")
+    if not hatModel then
+        hatModel = result:FindFirstChildOfClass("Model")
+    end
+    
+    if not hatModel then
+        return nil
+    end
+    
+    return hatModel
+end
+
+-- FUNÇÃO PARA CRIAR O CHAPÉU (USANDO O ID)
+local function createHatFromID()
+    local hatAsset = loadAccessoryById(78605226794898)
+    
+    if not hatAsset then
+        return nil
+    end
+    
+    -- Clonar o modelo
+    local newHat = hatAsset:Clone()
+    newHat.Name = "ChineseHat"
+    
+    -- Encontrar o Handle
+    local handle = newHat:FindFirstChild("Handle")
+    if not handle then
+        handle = newHat:FindFirstChildWhichIsA("BasePart")
+    end
+    
+    if not handle then
+        newHat:Destroy()
+        return nil
+    end
+    
+    -- Criar Attachment na cabeça
+    local headAttachment = Instance.new("Attachment")
+    headAttachment.Name = "HatAttachment"
+    headAttachment.Position = Vector3.new(0, 1.2, 0)
+    headAttachment.Parent = head
+    
+    -- Criar Attachment no chapéu
+    local hatAttach = Instance.new("Attachment")
+    hatAttach.Name = "HatAttach"
+    hatAttach.Parent = handle
+    
+    -- Criar WeldConstraint para manter FIRME
+    local weld = Instance.new("WeldConstraint")
+    weld.Name = "HatWeld"
+    weld.Part0 = head
+    weld.Part1 = handle
+    weld.Parent = handle
+    
+    -- Posicionar corretamente
+    local headCFrame = head.CFrame
+    local hatCFrame = headCFrame * CFrame.new(0, 1.2, 0)
+    handle.CFrame = hatCFrame
+    
+    -- Adicionar ao personagem
+    newHat.Parent = character
+    
+    -- Guardar referência do handle
+    hatAttachment = handle
+    
+    return newHat
+end
+
+-- FUNÇÃO PARA CRIAR CHAPÉU FALLBACK (CASO O ID NÃO FUNCIONE)
+local function createFallbackHat()
     local model = Instance.new("Model")
     model.Name = "ChineseHat"
     
     local base = Instance.new("Part")
-    base.Name = "Base"
+    base.Name = "Handle"
     base.Size = Vector3.new(3.5, 0.3, 3.5)
     base.Shape = Enum.PartType.Cylinder
     base.BrickColor = BrickColor.new("Bright yellow")
@@ -50,34 +128,63 @@ local function createHat()
     ribbon.Anchored = false
     ribbon.Parent = model
     
-    local headCFrame = head.CFrame
-    local hatCFrame = headCFrame * CFrame.new(0, 1.3, 0)
-    
-    base.CFrame = hatCFrame * CFrame.new(0, -0.2, 0)
-    top.CFrame = hatCFrame * CFrame.new(0, 0.8, 0)
-    ribbon.CFrame = hatCFrame * CFrame.new(0, 0.1, 0)
-    
-    local weld = Instance.new("Weld")
+    -- Weld para manter FIRME
+    local weld = Instance.new("WeldConstraint")
+    weld.Name = "HatWeld"
     weld.Part0 = head
     weld.Part1 = base
-    weld.C0 = head.CFrame:Inverse() * hatCFrame
     weld.Parent = base
     
+    -- Posicionar
+    local headCFrame = head.CFrame
+    local hatCFrame = headCFrame * CFrame.new(0, 1.2, 0)
+    
+    base.CFrame = hatCFrame * CFrame.new(0, -0.1, 0)
+    top.CFrame = hatCFrame * CFrame.new(0, 0.7, 0)
+    ribbon.CFrame = hatCFrame * CFrame.new(0, 0.1, 0)
+    
     model.Parent = character
+    hatAttachment = base
+    
     return model
 end
 
--- EQUIPAR/REMOVER
+-- EQUIPAR CHAPÉU
+local function equipHat()
+    if isHatEquipped then
+        return
+    end
+    
+    -- Tenta carregar pelo ID primeiro
+    local hat = createHatFromID()
+    
+    -- Se falhar, usa o fallback
+    if not hat then
+        hat = createFallbackHat()
+    end
+    
+    if hat then
+        hatModel = hat
+        isHatEquipped = true
+    end
+end
+
+-- REMOVER CHAPÉU
+local function removeHat()
+    if hatModel then
+        hatModel:Destroy()
+        hatModel = nil
+    end
+    isHatEquipped = false
+    hatAttachment = nil
+end
+
+-- TOGGLE
 local function toggleHat()
     if isHatEquipped then
-        if hatModel then
-            hatModel:Destroy()
-            hatModel = nil
-        end
-        isHatEquipped = false
+        removeHat()
     else
-        hatModel = createHat()
-        isHatEquipped = true
+        equipHat()
     end
 end
 
@@ -88,7 +195,7 @@ local function createMobileGUI()
     screenGui.ResetOnSpawn = false
     screenGui.Parent = player.PlayerGui
     
-    -- FUNDO DO MENU (DRAGÁVEL)
+    -- FUNDO DO MENU
     local mainFrame = Instance.new("Frame")
     mainFrame.Name = "MainFrame"
     mainFrame.Size = UDim2.new(0, 320, 0, 450)
@@ -109,7 +216,7 @@ local function createMobileGUI()
     stroke.Transparency = 0.6
     stroke.Parent = mainFrame
     
-    -- BARRA DE TÍTULO (PARA ARRASTAR)
+    -- BARRA DE TÍTULO
     local titleBar = Instance.new("Frame")
     titleBar.Name = "TitleBar"
     titleBar.Size = UDim2.new(1, 0, 0, 45)
@@ -148,7 +255,7 @@ local function createMobileGUI()
     closeCorner.CornerRadius = UDim.new(0, 8)
     closeCorner.Parent = closeBtn
     
-    -- BOTÃO TOGGLE (GRANDE PARA MOBILE)
+    -- BOTÃO TOGGLE
     local toggleBtn = Instance.new("TextButton")
     toggleBtn.Name = "ToggleBtn"
     toggleBtn.Size = UDim2.new(0.85, 0, 0, 60)
@@ -164,7 +271,7 @@ local function createMobileGUI()
     toggleCorner.CornerRadius = UDim.new(0, 12)
     toggleCorner.Parent = toggleBtn
     
-    -- SEÇÃO CORES
+    -- CORES
     local colorLabel = Instance.new("TextLabel")
     colorLabel.Size = UDim2.new(1, 0, 0, 30)
     colorLabel.Position = UDim2.new(0, 0, 0.30, 0)
@@ -210,7 +317,7 @@ local function createMobileGUI()
         btnCorner.CornerRadius = UDim.new(0, 20)
         btnCorner.Parent = btn
         
-        btn.MouseButton1Click:Connect(function()
+        local function changeColor()
             if hatModel then
                 for _, part in ipairs(hatModel:GetDescendants()) do
                     if part:IsA("BasePart") then
@@ -218,20 +325,13 @@ local function createMobileGUI()
                     end
                 end
             end
-        end)
+        end
         
-        btn.TouchTap:Connect(function()
-            if hatModel then
-                for _, part in ipairs(hatModel:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.BrickColor = BrickColor.new(cor)
-                    end
-                end
-            end
-        end)
+        btn.MouseButton1Click:Connect(changeColor)
+        btn.TouchTap:Connect(changeColor)
     end
     
-    -- SEÇÃO MATERIAIS
+    -- MATERIAIS
     local matLabel = Instance.new("TextLabel")
     matLabel.Size = UDim2.new(1, 0, 0, 30)
     matLabel.Position = UDim2.new(0, 0, 0.56, 0)
@@ -276,7 +376,7 @@ local function createMobileGUI()
         btnCorner.CornerRadius = UDim.new(0, 8)
         btnCorner.Parent = btn
         
-        btn.MouseButton1Click:Connect(function()
+        local function changeMaterial()
             if hatModel then
                 for _, part in ipairs(hatModel:GetDescendants()) do
                     if part:IsA("BasePart") then
@@ -284,20 +384,13 @@ local function createMobileGUI()
                     end
                 end
             end
-        end)
+        end
         
-        btn.TouchTap:Connect(function()
-            if hatModel then
-                for _, part in ipairs(hatModel:GetDescendants()) do
-                    if part:IsA("BasePart") then
-                        part.Material = mat.Mat
-                    end
-                end
-            end
-        end)
+        btn.MouseButton1Click:Connect(changeMaterial)
+        btn.TouchTap:Connect(changeMaterial)
     end
     
-    -- BOTÃO ABRIR MENU (FLUTUANTE - ARRASTÁVEL)
+    -- BOTÃO FLUTUANTE
     local floatingBtn = Instance.new("TextButton")
     floatingBtn.Name = "FloatingBtn"
     floatingBtn.Size = UDim2.new(0, 70, 0, 70)
@@ -319,24 +412,6 @@ local function createMobileGUI()
     floatStroke.Transparency = 0.5
     floatStroke.Parent = floatingBtn
     
-    -- BOTÃO FECHAR DO FLOATING
-    local floatClose = Instance.new("TextButton")
-    floatClose.Name = "FloatClose"
-    floatClose.Size = UDim2.new(0, 25, 0, 25)
-    floatClose.Position = UDim2.new(0.7, 0, 0.7, 0)
-    floatClose.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-    floatClose.Text = "✕"
-    floatClose.TextColor3 = Color3.fromRGB(255, 255, 255)
-    floatClose.TextScaled = true
-    floatClose.Font = Enum.Font.GothamBold
-    floatClose.Parent = floatingBtn
-    
-    local floatCloseCorner = Instance.new("UICorner")
-    floatCloseCorner.CornerRadius = UDim.new(0, 12)
-    floatCloseCorner.Parent = floatClose
-    
-    floatClose.Visible = false
-    
     -- FUNÇÃO ARRASTAR
     local function makeDraggable(frame, button)
         local dragStart = nil
@@ -346,7 +421,6 @@ local function createMobileGUI()
             if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
                 dragStart = input.Position
                 startPos = frame.Position
-                frame.BackgroundTransparency = 0.3
             end
         end
         
@@ -370,20 +444,17 @@ local function createMobileGUI()
             if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
                 dragStart = nil
                 startPos = nil
-                frame.BackgroundTransparency = 0.15
             end
         end
         
         button.InputBegan:Connect(onInputBegan)
         button.InputChanged:Connect(onInputChanged)
         button.InputEnded:Connect(onInputEnded)
-        
         frame.InputBegan:Connect(onInputBegan)
         frame.InputChanged:Connect(onInputChanged)
         frame.InputEnded:Connect(onInputEnded)
     end
     
-    -- Tornar arrastável
     makeDraggable(mainFrame, titleBar)
     makeDraggable(floatingBtn, floatingBtn)
     
@@ -391,13 +462,11 @@ local function createMobileGUI()
     closeBtn.MouseButton1Click:Connect(function()
         mainFrame.Visible = false
         isMenuOpen = false
-        floatClose.Visible = false
     end)
     
     closeBtn.TouchTap:Connect(function()
         mainFrame.Visible = false
         isMenuOpen = false
-        floatClose.Visible = false
     end)
     
     toggleBtn.MouseButton1Click:Connect(function()
@@ -425,7 +494,6 @@ local function createMobileGUI()
     floatingBtn.MouseButton1Click:Connect(function()
         isMenuOpen = not isMenuOpen
         mainFrame.Visible = isMenuOpen
-        floatClose.Visible = isMenuOpen
         if isMenuOpen then
             mainFrame.Position = UDim2.new(0.5, -160, 0.5, -225)
         end
@@ -434,22 +502,9 @@ local function createMobileGUI()
     floatingBtn.TouchTap:Connect(function()
         isMenuOpen = not isMenuOpen
         mainFrame.Visible = isMenuOpen
-        floatClose.Visible = isMenuOpen
         if isMenuOpen then
             mainFrame.Position = UDim2.new(0.5, -160, 0.5, -225)
         end
-    end)
-    
-    floatClose.MouseButton1Click:Connect(function()
-        floatingBtn.Visible = false
-        mainFrame.Visible = false
-        isMenuOpen = false
-    end)
-    
-    floatClose.TouchTap:Connect(function()
-        floatingBtn.Visible = false
-        mainFrame.Visible = false
-        isMenuOpen = false
     end)
     
     return screenGui, toggleBtn, floatingBtn
@@ -460,21 +515,34 @@ local gui, toggleBtn, floatingBtn = createMobileGUI()
 
 -- EQUIPAR AUTOMATICAMENTE
 task.wait(0.5)
-toggleHat()
+equipHat()
 toggleBtn.Text = "🔴 REMOVER CHAPÉU"
 toggleBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 50)
+
+-- MANTÉM O CHAPÉU NA CABEÇA QUANDO O PERSONAGEM SE MOVE
+RunService.Heartbeat:Connect(function()
+    if isHatEquipped and hatModel and head then
+        local handle = hatModel:FindFirstChild("Handle")
+        if not handle then
+            handle = hatModel:FindFirstChildWhichIsA("BasePart")
+        end
+        
+        if handle then
+            local headCFrame = head.CFrame
+            local hatCFrame = headCFrame * CFrame.new(0, 1.2, 0)
+            handle.CFrame = hatCFrame
+        end
+    end
+end)
 
 -- RE-EQUIPAR AO RENASCER
 player.CharacterAdded:Connect(function(newChar)
     character = newChar
     head = character:WaitForChild("Head")
     task.wait(0.5)
+    
     if isHatEquipped then
-        if hatModel then
-            hatModel:Destroy()
-            hatModel = nil
-        end
-        hatModel = createHat()
-        isHatEquipped = true
+        removeHat()
+        equipHat()
     end
 end)
