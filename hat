@@ -9,7 +9,7 @@ local Mouse = LocalPlayer:GetMouse()
 local Camera = workspace.CurrentCamera
 
 local Settings = {
-    Enabled = false,
+    Enabled = true,
     FOV = 360,              -- 360 = mira em qualquer lugar da tela
     AimPart = "Head",       -- Head ou HumanoidRootPart
     AutoShoot = true,       -- Atira automaticamente
