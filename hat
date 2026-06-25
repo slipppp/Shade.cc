@@ -1,0 +1,132 @@
+-- Script para colocar chapéu de palha chinês tradicional na cabeça
+-- Coloque este script em StarterPlayerScripts ou StarterCharacterScripts
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Função para criar o chapéu de palha
+local function createStrawHat()
+    -- Criar uma parte para o chapéu
+    local hat = Instance.new("Part")
+    hat.Name = "StrawHat"
+    hat.Size = Vector3.new(3, 0.5, 3) -- Largura x Altura x Profundidade
+    hat.Shape = Enum.PartType.Cylinder
+    hat.BrickColor = BrickColor.new("Bright yellow") -- Cor de palha
+    hat.Material = Enum.Material.Wood -- Simula palha
+    hat.CanCollide = false
+    hat.Anchored = false
+    
+    -- Criar o topo cônico do chapéu
+    local topPart = Instance.new("Part")
+    topPart.Name = "HatTop"
+    topPart.Size = Vector3.new(1.5, 1.5, 1.5)
+    topPart.Shape = Enum.PartType.Cylinder
+    topPart.BrickColor = BrickColor.new("Bright yellow")
+    topPart.Material = Enum.Material.Wood
+    topPart.CanCollide = false
+    topPart.Anchored = false
+    
+    -- Fazer o topo ficar em cima do chapéu
+    topPart.CFrame = hat.CFrame * CFrame.new(0, 1, 0)
+    
+    -- Adicionar fita vermelha decorativa
+    local ribbon = Instance.new("Part")
+    ribbon.Name = "Ribbon"
+    ribbon.Size = Vector3.new(2.8, 0.2, 0.3)
+    ribbon.BrickColor = BrickColor.new("Bright red")
+    ribbon.Material = Enum.Material.Fabric
+    ribbon.CanCollide = false
+    ribbon.Anchored = false
+    
+    -- Criar uma cesta para agrupar todas as partes
+    local hatGroup = Instance.new("Model")
+    hatGroup.Name = "StrawHat"
+    
+    -- Adicionar todas as partes ao grupo
+    hat.Parent = hatGroup
+    topPart.Parent = hatGroup
+    ribbon.Parent = hatGroup
+    
+    return hatGroup
+end
+
+-- Função para colocar o chapéu na cabeça do jogador
+local function equipHat(character)
+    -- Verificar se o personagem existe
+    if not character or not character:IsA("Model") then
+        return
+    end
+    
+    -- Remover chapéu antigo se existir
+    local oldHat = character:FindFirstChild("StrawHat")
+    if oldHat then
+        oldHat:Destroy()
+    end
+    
+    -- Encontrar a cabeça do personagem
+    local head = character:FindFirstChild("Head")
+    if not head then
+        return
+    end
+    
+    -- Criar o novo chapéu
+    local hatGroup = createStrawHat()
+    
+    -- Posicionar o chapéu na cabeça
+    local headCFrame = head.CFrame
+    local hatCFrame = headCFrame * CFrame.new(0, 1.2, 0) -- Ajustar altura
+    
+    -- Colocar todas as partes do chapéu na posição correta
+    local hatBase = hatGroup:FindFirstChild("StrawHat")
+    local hatTop = hatGroup:FindFirstChild("HatTop")
+    local ribbon = hatGroup:FindFirstChild("Ribbon")
+    
+    if hatBase then
+        hatBase.CFrame = hatCFrame * CFrame.new(0, -0.2, 0)
+    end
+    
+    if hatTop then
+        hatTop.CFrame = hatCFrame * CFrame.new(0, 0.8, 0)
+    end
+    
+    if ribbon then
+        ribbon.CFrame = hatCFrame * CFrame.new(0, 0.1, 0)
+    end
+    
+    -- Conectar o chapéu à cabeça para que se mova com ela
+    local weld = Instance.new("Weld")
+    weld.Part0 = head
+    weld.Part1 = hatBase
+    weld.C0 = head.CFrame:Inverse() * hatCFrame
+    weld.Parent = hatBase
+    
+    -- Colocar o chapéu no personagem
+    hatGroup.Parent = character
+    
+    return hatGroup
+end
+
+-- Função principal
+local function onCharacterAdded(character)
+    -- Aguardar um momento para o personagem ser completamente carregado
+    task.wait(0.5)
+    
+    -- Tentar equipar o chapéu
+    local success, errorMsg = pcall(function()
+        equipHat(character)
+    end)
+    
+    if not success then
+        warn("Erro ao equipar chapéu:", errorMsg)
+    end
+end
+
+-- Conectar evento quando o personagem do jogador for adicionado
+local player = Players.LocalPlayer
+if player.Character then
+    onCharacterAdded(player.Character)
+end
+
+player.CharacterAdded:Connect(onCharacterAdded)
+
+print("Script do chapéu chinês carregado com sucesso!")
